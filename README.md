@@ -49,7 +49,7 @@ Used automatically when no holiday is within 30 days.
 Set up your pre-roll folder like this:
 
 ```
-C:\Usenet\Preroll\
+C:\XXXXXX\Preroll\
 │   Plex Preroll.mp4          ← default fallback
 │
 ├───New Years\
@@ -97,8 +97,8 @@ Open `Set-PlexPreroll.ps1` and edit the configuration section at the top:
 ```powershell
 $PlexToken    = "YOUR_PLEX_TOKEN_HERE"   # Paste your Plex token here
 $PlexHost     = "http://127.0.0.1:32400" # Change if Plex runs on a different host/port
-$PrerollRoot  = "C:\Usenet\Preroll"      # Root folder containing all your pre-roll subfolders
-$DefaultPreroll = "C:\Usenet\Preroll\Plex Preroll.mp4"  # Fallback video
+$PrerollRoot  = "C:\XXXXXX\Preroll"      # Root folder containing all your pre-roll subfolders
+$DefaultPreroll = "C:\XXXXXXX\Preroll\Plex Preroll.mp4"  # Fallback video
 $DaysBeforeHoliday = 30                  # How many days before a holiday to switch pre-rolls
 ```
 
@@ -108,7 +108,7 @@ If your folders are named differently, update the `$HolidayFolders` or `$SeasonF
 
 Save `Set-PlexPreroll.ps1` to:
 ```
-C:\Usenet\Preroll\Scripts\Set-PlexPreroll.ps1
+C:\XXXXXXX\Preroll\Scripts\Set-PlexPreroll.ps1
 ```
 
 ### Step 4 — Register the Scheduled Task
@@ -116,7 +116,7 @@ C:\Usenet\Preroll\Scripts\Set-PlexPreroll.ps1
 1. Right-click **PowerShell** → **Run as Administrator**
 2. Run:
 ```powershell
-& "C:\Usenet\Preroll\Scripts\Register-PlexPrerollTask.ps1"
+& "C:\XXXXXXX\Preroll\Scripts\Register-PlexPrerollTask.ps1"
 ```
 3. The task will be created to run daily at **3:00 AM**
 4. You will be asked if you want to run it immediately to test
@@ -125,7 +125,7 @@ C:\Usenet\Preroll\Scripts\Set-PlexPreroll.ps1
 
 Run the script manually at any time to verify it is working:
 ```powershell
-& "C:\Usenet\Preroll\Scripts\Set-PlexPreroll.ps1"
+& "C:\XXXXXXXX\Preroll\Scripts\Set-PlexPreroll.ps1"
 ```
 
 You should see output like:
@@ -135,7 +135,7 @@ You should see output like:
  2026-06-29 17:50:57
 =======================================
 Upcoming holiday detected: FourthOfJuly
-Folder: C:\Usenet\Preroll\4th of July
+Folder: C:\XXXXXXX\Preroll\4th of July
 SUCCESS: Pre-roll set to: C:\Usenet\Preroll\4th of July\independence.mp4
 Done.
 ```
