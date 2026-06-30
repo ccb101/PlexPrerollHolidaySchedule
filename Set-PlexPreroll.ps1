@@ -1,6 +1,7 @@
 # ============================================================
 #  Set-PlexPreroll.ps1
 #  Automatically sets Plex pre-roll based on upcoming holidays
+#  and current season when no holiday is within range
 # ============================================================
 
 # ============================================================
@@ -9,13 +10,13 @@
 
 # Your Plex token - get this from:
 # Plex Web > Account > Troubleshooting > "Your user token"
-$PlexToken = "YOURTOKEN"
+$PlexToken = "YOUR_PLEX_TOKEN_HERE"
 
 # Your Plex server URL (usually localhost unless running remotely)
-$PlexHost = "http://localhost:32400"
+$PlexHost = "http://127.0.0.1:32400"
 
-# Root folder where your holiday subfolders live
-$PrerollRoot = "C:\XXXX\XXXX"
+# Root folder where your holiday and season subfolders live
+$PrerollRoot = "C:\XXXX\XXXXXX"
 
 # Subfolder names for each holiday (must match your actual folder names)
 $HolidayFolders = @{
@@ -29,11 +30,38 @@ $HolidayFolders = @{
     "Christmas"     = "Christmas"
 }
 
-# Default pre-roll video used when no holiday is within 1 month
-$DefaultPreroll = "C:\XXXXX\XXXXX\Plex Preroll.mp4"
+# Subfolder names for each season (must match your actual folder names)
+# Used when no holiday is within range
+$SeasonFolders = @{
+    "Winter" = "Winter"
+    "Spring" = "Spring"
+    "Summer" = "Summer"
+    "Fall"   = "Fall"
+}
+
+# Default pre-roll used only if no holiday AND no season video is found
+$DefaultPreroll = "C:\XXXXXXX\XXXXXXX\Plex Preroll.mp4"
 
 # How many days before a holiday to start showing its pre-roll
-$DaysBeforeHoliday = 20
+$DaysBeforeHoliday = 30
+
+# ============================================================
+#  SEASON DETECTION
+#  Spring: Mar 1 - May 31
+#  Summer: Jun 1 - Aug 31
+#  Fall:   Sep 1 - Nov 30
+#  Winter: Dec 1 - Feb 28/29
+# ============================================================
+
+function Get-CurrentSeason {
+    $month = (Get-Date).Month
+    switch ($month) {
+        { $_ -in 3, 4, 5 }        { return "Spring" }
+        { $_ -in 6, 7, 8 }        { return "Summer" }
+        { $_ -in 9, 10, 11 }      { return "Fall"   }
+        { $_ -in 12, 1, 2 }       { return "Winter" }
+    }
+}
 
 # ============================================================
 #  HOLIDAY DATE DEFINITIONS
@@ -59,6 +87,13 @@ function Get-EasterDate($year) {
     return Get-Date -Year $year -Month $month -Day $day
 }
 
+function Get-ThanksgivingDate($year) {
+    # 4th Thursday of November
+    $nov1 = Get-Date -Year $year -Month 11 -Day 1
+    $daysUntilThursday = (4 - [int]$nov1.DayOfWeek + 7) % 7
+    return $nov1.AddDays($daysUntilThursday + 21)
+}
+
 function Get-HolidayDates($year) {
     return @{
         "NewYears"     = Get-Date -Year $year -Month 1  -Day 1
@@ -70,13 +105,6 @@ function Get-HolidayDates($year) {
         "Thanksgiving" = Get-ThanksgivingDate $year
         "Christmas"    = Get-Date -Year $year -Month 12 -Day 25
     }
-}
-
-function Get-ThanksgivingDate($year) {
-    # 4th Thursday of November
-    $nov1 = Get-Date -Year $year -Month 11 -Day 1
-    $daysUntilThursday = (4 - [int]$nov1.DayOfWeek + 7) % 7
-    return $nov1.AddDays($daysUntilThursday + 21)
 }
 
 # ============================================================
@@ -126,11 +154,20 @@ function Get-RandomVideoFromFolder($folderPath) {
 }
 
 function Set-PlexPreroll($videoPath) {
-    $encoded = [System.Uri]::EscapeDataString($videoPath)
-    $url = "$PlexHost/:/prefs?CinemaTrailersPrerollID=$encoded&X-Plex-Token=$PlexToken"
+    $url  = "$PlexHost/:/prefs"
+    $body = "CinemaTrailersPrerollID=$([System.Uri]::EscapeDataString($videoPath))"
 
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Put
+        $response = Invoke-RestMethod `
+            -Uri $url `
+            -Method Put `
+            -Body $body `
+            -ContentType "application/x-www-form-urlencoded" `
+            -Headers @{
+                "X-Plex-Token"             = $PlexToken
+                "X-Plex-Client-Identifier" = "PlexPrerollScript"
+                "X-Plex-Product"           = "Plex Preroll Scheduler"
+            }
         Write-Host "SUCCESS: Pre-roll set to: $videoPath" -ForegroundColor Green
         return $true
     } catch {
@@ -151,8 +188,9 @@ Write-Host "=======================================" -ForegroundColor Cyan
 $upcomingHoliday = Get-UpcomingHoliday
 
 if ($upcomingHoliday) {
-    $folderName   = $HolidayFolders[$upcomingHoliday]
-    $folderPath   = Join-Path $PrerollRoot $folderName
+    # --- Holiday mode ---
+    $folderName    = $HolidayFolders[$upcomingHoliday]
+    $folderPath    = Join-Path $PrerollRoot $folderName
     $selectedVideo = Get-RandomVideoFromFolder $folderPath
 
     Write-Host "Upcoming holiday detected: $upcomingHoliday" -ForegroundColor Yellow
@@ -161,12 +199,28 @@ if ($upcomingHoliday) {
     if ($selectedVideo) {
         Set-PlexPreroll $selectedVideo
     } else {
-        Write-Warning "Could not find a video for $upcomingHoliday, falling back to default."
+        Write-Warning "Could not find a video for $upcomingHoliday, falling back to season."
+        # Fall through to seasonal logic below
+        $upcomingHoliday = $null
+    }
+}
+
+if (-not $upcomingHoliday) {
+    # --- Seasonal mode ---
+    $currentSeason = Get-CurrentSeason
+    $seasonFolder  = $SeasonFolders[$currentSeason]
+    $seasonPath    = Join-Path $PrerollRoot $seasonFolder
+    $selectedVideo = Get-RandomVideoFromFolder $seasonPath
+
+    if ($selectedVideo) {
+        Write-Host "No upcoming holiday. Using season: $currentSeason" -ForegroundColor Magenta
+        Write-Host "Folder: $seasonPath" -ForegroundColor Magenta
+        Set-PlexPreroll $selectedVideo
+    } else {
+        # --- Final fallback to default ---
+        Write-Warning "No season video found either. Falling back to default pre-roll."
         Set-PlexPreroll $DefaultPreroll
     }
-} else {
-    Write-Host "No upcoming holiday within $DaysBeforeHoliday days. Using default pre-roll." -ForegroundColor Gray
-    Set-PlexPreroll $DefaultPreroll
 }
 
 Write-Host "Done." -ForegroundColor Cyan
