@@ -136,7 +136,7 @@ You should see output like:
 =======================================
 Upcoming holiday detected: FourthOfJuly
 Folder: C:\XXXXXXX\Preroll\4th of July
-SUCCESS: Pre-roll set to: C:\Usenet\Preroll\4th of July\independence.mp4
+SUCCESS: Pre-roll set to: C:\XXXXXX\Preroll\4th of July\independence.mp4
 Done.
 ```
 
